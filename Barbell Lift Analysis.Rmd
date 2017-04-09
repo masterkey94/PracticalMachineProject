@@ -1,0 +1,137 @@
+---
+title: "Barbell Lift Analysis"
+author: "Keelan Yang"
+date: "April 10, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=65),tidy=TRUE)
+options(width=90)
+```
+
+## Executive Summary
+
+The purpose of this analysis is to predict how a person performed one of five barbell lifts based on the data from the Weight Lifting Exercise Dataset sourced from http://groupware.les.inf.puc-rio.br/har. The data are collected from wearable devices with accelerometers on the belt, forearm, arm, and dumbell from six participants.  The resulting model will be used to predict 20 different test cases.
+
+```{r libraries, echo = FALSE, warning = FALSE, message = FALSE}
+library(ggplot2)
+library(caret)
+library(randomForest)
+```
+
+
+## Data Preparation and Preprocessing
+The initial training dataset contained 160 variables with 19622 observations, while the test dataset contained 160 variables with 20 observations.
+```{r data load, echo = FALSE}
+#  Load data files 
+trainfile <- "pml-training.csv"
+if(!file.exists(trainfile)) {
+  FileURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+  download.file(FileURL, trainfile)
+}
+
+testfile <- "pml-testing.csv"
+if(!file.exists(testfile)) {
+  FileURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+  download.file(FileURL, testfile)
+}
+
+#Load data, treating blanks as NA
+rawtraindata <- read.csv("./pml-training.csv", na.strings=c("NA",""), header=TRUE)
+rawtestdata <- read.csv("./pml-testing.csv", na.strings=c("NA",""), header=TRUE)
+
+data.frame(dataset = c("Train", "Test"), obs = c(dim(rawtraindata)[1], dim(rawtestdata)[1]), variables = c(dim(rawtraindata)[2], dim(rawtestdata)[2]))
+```
+
+After the data was loaded from the website, extraneous variables (e.g. user name, timestamps,etc.) were first removed. To reduce the number of potential predictors, analysis was performed on the test data set to remove variables that contained NAs. These variables were removed from both the training and test data sets.
+
+``` {r DataReduction, echo = FALSE}
+
+#Remove 1st 7 columns (e.g., X, user_name, etc.) which will not be used as predictors
+traindata <- rawtraindata[, -c(1:7)]
+testdata <- rawtestdata[, -c(1:7)]
+
+#Check to see if any columns in the test data has only NA and remove from train and test data
+
+NACheck_Test <- sapply(testdata, function(x)all(is.na(x)))
+print(table(NACheck_Test))
+
+traindata <- traindata[, !NACheck_Test]
+testdata <- testdata[, !NACheck_Test]
+
+```
+
+Below is the list of 52 potential predictors that contained no NAs:
+``` {r VarList, echo = FALSE}
+colnames(traindata[,-53])
+```
+
+Next step is to create a validation data set from the training data set to allow for cross validation and to estimate the out-of-sample error rate.
+
+``` {r createvalidation}
+#Create validation data set from training data set for cross-validation
+set.seed(1100)
+inTrain <- createDataPartition(y=traindata$classe,p=0.7, list=FALSE)
+validationdata <- traindata[-inTrain,]
+traindata <- traindata[inTrain,]
+```
+
+After the validation data set was created, the training set was preprocessed using a center and scale methodology.  This preprocessing was then applied to both the validation and test data sets.
+
+``` {r Preprocess, cache = TRUE}
+set.seed(100)
+prepro_train <- preProcess(traindata[,-which(names(traindata) %in% c("classe"))], method = c("center", "scale"))
+traindata_PP <- predict(prepro_train, newdata = traindata[,-which(names(traindata) %in% c("classe"))])
+traindata_PP <- data.frame(classe = traindata$classe, traindata_PP)
+
+validationdata_PP <- predict(prepro_train, newdata = validationdata[,-which(names(validationdata) %in% c("classe"))])
+validationdata_PP <- data.frame(classe = validationdata$classe, validationdata_PP)
+
+testdata_PP <- predict(prepro_train, newdata = testdata)
+```
+
+# Model Development
+Given that the objective is to classify five potential exercise behaviors, both decision tree and random forest approaches were compared.  First the models were developed on the training data set and then applied to the validation data set to quantify the potential out of sample error rates.
+
+``` {r modeldev, cache = TRUE, warning = FALSE, message = FALSE}
+
+## Random Forest
+set.seed(100)
+fitRF <- randomForest(classe ~ ., data = traindata_PP)
+predRF_train <- predict(fitRF, newdata = traindata_PP)
+
+## Decision Tree
+set.seed(100)
+fitRpart <- train(classe ~ ., data = traindata_PP, method = "rpart")
+predRpart_train <- predict(fitRpart, newdata = traindata_PP)
+```
+
+``` {r ModelValid, warning = FALSE, message = FALSE}
+# Apply model to validation data sets
+predRF_valid <- predict(fitRF, newdata = validationdata_PP)
+predRpart_valid <- predict(fitRpart, newdata = validationdata_PP)
+```
+
+# Model Selection
+Review of the error rates, both in-sample and out-of-sample, showed that the random forest model performed significantly better than the decision tree model.
+``` {r ErrorRate}
+error_RF_train <- 1-confusionMatrix(predRF_train, traindata_PP$classe)$overall[1]
+error_Rpart_train <- 1-confusionMatrix(predRpart_train, traindata_PP$classe)$overall[1]
+error_RF_valid <- 1- confusionMatrix(predRF_valid, validationdata_PP$classe)$overall[1]
+error_Rpart_valid <- 1- confusionMatrix(predRpart_valid, validationdata_PP$classe)$overall[1]
+
+results_accuracy <- data.frame(method = c("Random Forest", "Decision Tree"), In_Sample = c(error_RF_train, error_Rpart_train), Out_Sample = c(error_RF_valid, error_Rpart_valid))
+print(results_accuracy)
+```
+
+The out-of-sample estimated error for the selected random forest model is **`r round(error_RF_valid, 4)*100`%**. The decision tree model exhibited error rates ~50%.
+
+# 20 Test Case Prediction
+Below is the prediction for the 20 test cases provided using the selected random forest model.
+``` {r testprediction}
+pred_test <- predict(fitRF, newdata = testdata_PP)
+print(pred_test)
+```
