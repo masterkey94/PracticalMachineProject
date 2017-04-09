@@ -180,15 +180,17 @@ testdata_PP &lt;- predict(prepro_train, newdata = testdata)</code></pre>
 </div>
 <div id="model-development" class="section level1">
 <h1>Model Development</h1>
-<p>Given that the objective is to classify five potential exercise behaviors, both decision tree and random forest approaches were compared. First the models were developed on the training data set and then applied to the validation data set to quantify the potential out of sample error rates.</p>
+<p>Given that the objective is to classify five potential exercise behaviors, both decision tree and random forest approaches were compared. First the models were developed on the training data set using cross-validation and then applied to the validation data set to quantify the potential out of sample error rates.</p>
 <pre class="r"><code>## Random Forest
 set.seed(100)
-fitRF &lt;- randomForest(classe ~ ., data = traindata_PP)
+fitRF &lt;- randomForest(classe ~ ., data = traindata_PP, trControl = trainControl(method = &quot;cv&quot;, 
+    number = 4))
 predRF_train &lt;- predict(fitRF, newdata = traindata_PP)
 
 ## Decision Tree
 set.seed(100)
-fitRpart &lt;- train(classe ~ ., data = traindata_PP, method = &quot;rpart&quot;)
+fitRpart &lt;- train(classe ~ ., data = traindata_PP, method = &quot;rpart&quot;, 
+    trControl = trainControl(method = &quot;cv&quot;, number = 4))
 predRpart_train &lt;- predict(fitRpart, newdata = traindata_PP)</code></pre>
 <pre class="r"><code># Apply model to validation data sets
 predRF_valid &lt;- predict(fitRF, newdata = validationdata_PP)

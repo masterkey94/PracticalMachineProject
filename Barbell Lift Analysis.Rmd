@@ -3,8 +3,8 @@ title: "Barbell Lift Analysis"
 author: "Keelan Yang"
 date: "April 10, 2017"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -94,18 +94,18 @@ testdata_PP <- predict(prepro_train, newdata = testdata)
 ```
 
 # Model Development
-Given that the objective is to classify five potential exercise behaviors, both decision tree and random forest approaches were compared.  First the models were developed on the training data set and then applied to the validation data set to quantify the potential out of sample error rates.
+Given that the objective is to classify five potential exercise behaviors, both decision tree and random forest approaches were compared.  First the models were developed on the training data set using cross-validation and then applied to the validation data set to quantify the potential out of sample error rates.
 
 ``` {r modeldev, cache = TRUE, warning = FALSE, message = FALSE}
 
 ## Random Forest
 set.seed(100)
-fitRF <- randomForest(classe ~ ., data = traindata_PP)
+fitRF <- randomForest(classe ~ ., data = traindata_PP, trControl=trainControl(method = "cv", number = 4))
 predRF_train <- predict(fitRF, newdata = traindata_PP)
 
 ## Decision Tree
 set.seed(100)
-fitRpart <- train(classe ~ ., data = traindata_PP, method = "rpart")
+fitRpart <- train(classe ~ ., data = traindata_PP, method = "rpart", trControl=trainControl(method = "cv", number = 4))
 predRpart_train <- predict(fitRpart, newdata = traindata_PP)
 ```
 
