@@ -46,7 +46,7 @@ rawtestdata <- read.csv("./pml-testing.csv", na.strings=c("NA",""), header=TRUE)
 data.frame(dataset = c("Train", "Test"), obs = c(dim(rawtraindata)[1], dim(rawtestdata)[1]), variables = c(dim(rawtraindata)[2], dim(rawtestdata)[2]))
 ```
 
-After the data was loaded from the website, extraneous variables (e.g. user name, timestamps,etc.) were first removed. To reduce the number of potential predictors, analysis was performed on the test data set to remove variables that contained NAs. These variables were removed from both the training and test data sets.
+After the data were loaded from the website, extraneous variables (e.g. user name, timestamps,etc.) were first removed. To reduce the number of potential predictors, analysis was performed on the test data set to remove variables that contained NAs. These variables were removed from both the training and test data sets.
 
 ``` {r DataReduction, echo = FALSE}
 
